@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: gif-sniffer
+    restart: always # Riavvia automaticamente il container se crasha o se si riavvia il server Debian
+    ports:
+      - "3000:3000" # Mappa la porta 3000 del server alla 3000 del container
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      # (Opzionale) Mappatura del temp se vuoi accedere ai video scaricati dal server
+      # - ./temp:/app/temp 
+      - ./.env:/app/.env # Per il caricamento delle variabili d'ambiente in produzione se le avrai in futuro
