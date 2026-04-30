@@ -33,6 +33,8 @@ export default function App() {
   
   const [igSessionId, setIgSessionId] = useState(() => localStorage.getItem('ig_sessionid') || '');
 
+  const [extractedCache, setExtractedCache] = useState<{ url: string, videoUrl: string, title: string } | null>(null);
+
   const handleDownload = async () => {
     if (!url) {
       setError('Please enter a valid URL');
@@ -42,15 +44,28 @@ export default function App() {
     setLoading(true);
 
     try {
-      // Step 1: Extract Video URL
-      const extractRes = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, sessionid: igSessionId })
-      });
+      let finalVideoUrl = '';
+      let finalTitle = '';
 
-      const extractData = await extractRes.json();
-      if (!extractRes.ok) throw new Error(extractData.error || 'Failed to extract video');
+      if (extractedCache && extractedCache.url === url) {
+        // Use cached extraction if available for the same URL
+        finalVideoUrl = extractedCache.videoUrl;
+        finalTitle = extractedCache.title;
+      } else {
+        // Step 1: Extract Video URL
+        const extractRes = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, sessionid: igSessionId })
+        });
+
+        const extractData = await extractRes.json();
+        if (!extractRes.ok) throw new Error(extractData.error || 'Failed to extract video');
+
+        finalVideoUrl = extractData.videoUrl;
+        finalTitle = extractData.title;
+        setExtractedCache({ url, videoUrl: finalVideoUrl, title: finalTitle });
+      }
 
       // Step 2: Download or Process Video
       const settings = format === 'gif' 
@@ -61,8 +76,8 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoUrl: extractData.videoUrl,
-          title: extractData.title,
+          videoUrl: finalVideoUrl,
+          title: finalTitle,
           format: format,
           settings: settings
         })
@@ -80,7 +95,7 @@ export default function App() {
       a.style.display = 'none';
       a.href = downloadUrl;
       const extension = format === 'gif' ? 'gif' : 'mp4';
-      const filename = `${extractData.title || 'download'}.${extension}`;
+      const filename = `${finalTitle || 'download'}.${extension}`;
       a.download = filename;
       document.body.appendChild(a);
       a.click();

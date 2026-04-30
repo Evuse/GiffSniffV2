@@ -9,6 +9,7 @@ import * as cheerio from "cheerio";
 import cors from "cors";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegStatic from "ffmpeg-static";
+import { instagramGetUrl } from "instagram-url-direct";
 
 // Set ffmpeg-static path
 if (ffmpegStatic) {
@@ -33,13 +34,10 @@ async function startServer() {
     try {
       const headers: Record<string, string> = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Fetch-Mode": "navigate"
       };
-
-      if (sessionid) {
-        headers["Cookie"] = `sessionid=${sessionid};`;
-      }
 
       console.log(`Extracting from: ${url}`);
       let videoUrl = null;
@@ -59,35 +57,96 @@ async function startServer() {
         videoUrl = $('meta[property="og:video"]').attr("content") || $('meta[name="og:video"]').attr("content");
         title = $('meta[property="og:title"]').attr("content") || "pinterest_video";
         
-        // Strategy 2: Look for JSON script tag
+        // Strategy 2: Look for any mp4 link
         if (!videoUrl) {
-           const scripts = $('script').filter((i, el) => $(el).html()?.includes('v.pinimg.com') || false).toArray();
-           for (const script of scripts) {
-              const htmlContent = $(script).html() || "";
-              const match = htmlContent.match(/https:\/\/v\.pinimg\.com\/videos\/mc\/[a-zA-Z0-9_\-]+\/[a-zA-Z0-9_\-]+\.mp4/);
-              if (match) {
-                 videoUrl = match[0];
-                 break;
-              }
+           const match = html.match(/https:(?:\\\/\\\/|\/\/)[^"']+\.mp4/g);
+           if (match) {
+               const mp4s = Array.from(new Set(match)).map(u => u.replace(/\\/g, ''));
+               const expMp4 = mp4s.filter(u => u.includes('expMp4') || !u.includes('hevc'));
+               
+               const bestMatch = expMp4.find(u => u.includes('720')) || 
+                                 expMp4.find(u => u.includes('480')) || 
+                                 expMp4[0] || 
+                                 mp4s[0];
+               videoUrl = bestMatch;
+           }
+        }
+        
+        // Strategy 3: contentUrl JSON
+        if (!videoUrl) {
+           const jsonMatch = html.match(/"contentUrl"\s*:\s*"([^"]+)"/);
+           if (jsonMatch && jsonMatch[1]) {
+               videoUrl = jsonMatch[1].replace(/\\/g, '');
            }
         }
       } else if (url.includes("instagram.com")) {
-        const response = await axios.get(url, {
-          headers,
-        });
-
-        const html = response.data;
-        const $ = cheerio.load(html);
-
-        // Strategy 1: og:video tag
-        videoUrl = $('meta[property="og:video"]').attr("content");
-        title = $('meta[property="og:title"]').attr("content") || "instagram_video";
         
-        // Strategy 2: JSON-LD or script tags
-        if (!videoUrl) {
-            const matches = html.match(/"video_url":"([^"]+)"/);
-            if (matches && matches[1]) {
-                videoUrl = matches[1].replace(/\\u0026/g, '&');
+        const tryHtmlExtraction = async () => {
+            const customHeaders = { ...headers };
+            if (sessionid) {
+                // Remove spaces and make sure the format is right
+                const cleanSessionId = sessionid.trim().replace(/^sessionid=/, '');
+                customHeaders["Cookie"] = `sessionid=${cleanSessionId};`;
+            }
+            try {
+                const response = await axios.get(url, { headers: customHeaders, validateStatus: () => true });
+                if (response.status === 200 && typeof response.data === 'string') {
+                    const html = response.data;
+                    const $ = cheerio.load(html);
+                    let vUrl = $('meta[property="og:video"]').attr("content");
+                    
+                    if (!vUrl) {
+                        const match = html.match(/"video_url"\s*:\s*"([^"]+)"/);
+                        if (match && match[1]) {
+                            vUrl = match[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
+                        }
+                    }
+                    if (!vUrl) {
+                        const fallbacks = html.match(/"url"\s*:\s*"([^"]+\.mp4[^"]*)"/g);
+                        if (fallbacks) {
+                            for (const f of fallbacks) {
+                                const matchedUrl = f.match(/"url"\s*:\s*"([^"]+)"/);
+                                if (matchedUrl && matchedUrl[1] && matchedUrl[1].includes('.mp4')) {
+                                    vUrl = matchedUrl[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    return vUrl;
+                }
+            } catch (e) {
+                console.error("HTML Extraction Error:", e);
+            }
+            return null;
+        };
+
+        try {
+            // Strategy 1: User's sessionid HTML
+            if (sessionid) {
+                console.log("Attempting Instagram HTML extraction with sessionid...");
+                videoUrl = await tryHtmlExtraction();
+            }
+
+            // Strategy 2: instagram-url-direct module fallback
+            if (!videoUrl) {
+                console.log("Attempting instagram-url-direct library...");
+                const igResult = await instagramGetUrl(url);
+                if (igResult && igResult.url_list && igResult.url_list.length > 0) {
+                   videoUrl = igResult.url_list[0];
+                   title = (igResult.post_info && igResult.post_info.owner_username) ? `ig_${igResult.post_info.owner_username}` : "instagram_video";
+                }
+            }
+
+            // Strategy 3: Public HTML extraction
+            if (!videoUrl && !sessionid) {
+                 console.log("Attempting public Instagram HTML extraction...");
+                 videoUrl = await tryHtmlExtraction();
+            }
+        } catch (igError) {
+            console.error("Instagram extraction error:", igError);
+            if (!videoUrl && !sessionid) {
+                 videoUrl = await tryHtmlExtraction();
             }
         }
       } else {
@@ -191,12 +250,14 @@ async function startServer() {
          const { width = 480, fps = 15, colors = 256, dither = "sierra2_4a" } = settings || {};
          
          const ditherOpt = dither === "none" ? "none" : dither;
-         const vfParams = `scale=${width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${colors}[p];[s1][p]paletteuse=dither=${ditherOpt}`;
+         // Use fast_bilinear and stats_mode=single for massive speed improvements in GIF generation
+         const vfParams = `scale=${width}:-1:flags=fast_bilinear,split[s0][s1];[s0]palettegen=max_colors=${colors}:stats_mode=single[p];[s1][p]paletteuse=dither=${ditherOpt}`;
          
          const convertCmd = ffmpeg(inputPath)
             .outputOptions([
                 `-vf`, vfParams,
-                `-r`, `${fps}`
+                `-r`, `${fps}`,
+                `-threads`, `0`
             ])
             .toFormat("gif")
             .on("error", (err) => {
