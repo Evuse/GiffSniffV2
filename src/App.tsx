@@ -14,7 +14,7 @@ import SettingsModal from './components/SettingsModal';
 
 export default function App() {
   const [url, setUrl] = useState('');
-  const [format, setFormat] = useState<'mp4' | 'gif'>('mp4');
+  const [format, setFormat] = useState<'mp4' | 'gif' | 'image'>('mp4');
   
   // MP4 Settings
   const [mp4Quality, setMp4Quality] = useState<'original' | 'high' | 'medium' | 'low'>('original');
@@ -26,6 +26,10 @@ export default function App() {
   const [gifFps, setGifFps] = useState(15);
   const [gifColors, setGifColors] = useState(256);
   const [gifDither, setGifDither] = useState<'sierra2_4a' | 'bayer' | 'none'>('sierra2_4a');
+
+  // Image Settings
+  const [imageWidth, setImageWidth] = useState<number>(0);
+  const [imageQuality, setImageQuality] = useState<'original' | 'high' | 'medium' | 'low'>('original');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +74,8 @@ export default function App() {
       // Step 2: Download or Process Video
       const settings = format === 'gif' 
         ? { width: gifWidth, fps: gifFps, colors: gifColors, dither: gifDither } 
+        : format === 'image'
+        ? { quality: imageQuality, width: imageWidth }
         : { quality: mp4Quality, width: mp4Width, fps: mp4Fps };
 
       const downloadRes = await fetch('/api/download', {
@@ -94,7 +100,7 @@ export default function App() {
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = downloadUrl;
-      const extension = format === 'gif' ? 'gif' : 'mp4';
+      const extension = format === 'gif' ? 'gif' : format === 'image' ? 'jpg' : 'mp4';
       const filename = `${finalTitle || 'download'}.${extension}`;
       a.download = filename;
       document.body.appendChild(a);
@@ -181,7 +187,7 @@ export default function App() {
             {/* Format Selection */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-3">Output Format</label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button
                   type="button"
                   onClick={() => setFormat('mp4')}
@@ -216,6 +222,25 @@ export default function App() {
                   <span className={`font-semibold ${format === 'gif' ? 'text-purple-900' : 'text-slate-600'}`}>Animation (GIF)</span>
                   {format === 'gif' && (
                     <motion.div layoutId="format-check" className="absolute top-3 right-3 text-purple-600">
+                      <Check className="w-5 h-5" />
+                    </motion.div>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormat('image')}
+                  className={`relative flex flex-col items-center justify-center p-6 border-2 rounded-2xl transition-all ${
+                    format === 'image' 
+                      ? 'border-emerald-600 bg-emerald-50 shadow-md shadow-emerald-100/50' 
+                      : 'border-slate-100 bg-white hover:border-emerald-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className={`p-3 rounded-full mb-3 ${format === 'image' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                    <ImageIcon className="w-6 h-6" />
+                  </div>
+                  <span className={`font-semibold ${format === 'image' ? 'text-emerald-900' : 'text-slate-600'}`}>Image (JPG)</span>
+                  {format === 'image' && (
+                    <motion.div layoutId="format-check" className="absolute top-3 right-3 text-emerald-600">
                       <Check className="w-5 h-5" />
                     </motion.div>
                   )}
@@ -280,6 +305,42 @@ export default function App() {
                           ? "Video will be downloaded directly without re-encoding. This is the fastest method."
                           : "Video will be processed on the server to reduce file size. This might take roughly 10-30 seconds depending on video length."}
                       </p>
+                    </div>
+                  </motion.div>
+                ) : format === 'image' ? (
+                  <motion.div
+                    key="image-settings"
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-5 relative z-10"
+                  >
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Quality Level</label>
+                      <select 
+                        value={imageQuality} 
+                        onChange={(e: any) => setImageQuality(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                      >
+                        <option value="original">Original</option>
+                        <option value="high">High Quality</option>
+                        <option value="medium">Medium Quality</option>
+                        <option value="low">Low Quality</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Max Target Width</label>
+                      <select 
+                        value={imageWidth} 
+                        onChange={(e) => setImageWidth(Number(e.target.value))}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                      >
+                        <option value={0}>Original</option>
+                        <option value={1080}>1080px</option>
+                        <option value={720}>720px</option>
+                        <option value={480}>480px</option>
+                      </select>
                     </div>
                   </motion.div>
                 ) : (

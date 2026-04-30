@@ -79,6 +79,16 @@ async function startServer() {
                videoUrl = jsonMatch[1].replace(/\\/g, '');
            }
         }
+        
+        // Strategy 4: Fallback to GIF or Image
+        if (!videoUrl) {
+            const gifMatch = html.match(/https:(?:\\\/\\\/|\/\/)[^"']+\.gif\b/g);
+            if (gifMatch) {
+               videoUrl = Array.from(new Set(gifMatch))[0].replace(/\\/g, '');
+            } else {
+               videoUrl = $('meta[property="og:image"]').attr("content");
+            }
+        }
       } else if (url.includes("instagram.com")) {
         
         const tryHtmlExtraction = async () => {
@@ -111,6 +121,16 @@ async function startServer() {
                                     break;
                                 }
                             }
+                        }
+                    }
+                    
+                    if (!vUrl) {
+                        const gifMatch = html.match(/https:(?:\\\/\\\/|\/\/)[^"']+\.gif\b/g);
+                        if (gifMatch) {
+                            vUrl = Array.from(new Set(gifMatch))[0].replace(/\\/g, '');
+                        } else {
+                            const ogImage = $('meta[property="og:image"]').attr("content");
+                            if (ogImage && !ogImage.includes('rsrc.php')) vUrl = ogImage;
                         }
                     }
                     return vUrl;
@@ -154,7 +174,7 @@ async function startServer() {
       }
 
       if (!videoUrl) {
-         return res.status(404).json({ error: "Could not extract video URL. Make sure it's a valid video post and check Instagram session ID if private/blocked." });
+         return res.status(404).json({ error: "Could not extract media URL. Make sure it's a valid post and check Instagram session ID if private/blocked." });
       }
 
       return res.json({ videoUrl, title });
@@ -173,8 +193,8 @@ async function startServer() {
 
     const tempDir = os.tmpdir();
     const tempFileId = crypto.randomUUID();
-    const inputPath = path.join(tempDir, `${tempFileId}.mp4`);
-    const outputPath = path.join(tempDir, `${tempFileId}.${format}`); // .mp4 or .gif
+    const inputPath = path.join(tempDir, `${tempFileId}_input`); // without extension so ffmpeg detects
+    const outputPath = path.join(tempDir, `${tempFileId}.${format === 'image' ? 'jpg' : format}`); // .mp4, .gif, .jpg
 
     try {
       // 1. Download video to temp storage
@@ -231,6 +251,50 @@ async function startServer() {
             .on("error", (err) => {
                console.error("FFmpeg error:", err);
                if (!res.headersSent) res.status(500).json({ error: "Error compressing video" });
+               fs.unlink(inputPath, () => {});
+            })
+            .on("end", () => {
+               const readStream = fs.createReadStream(outputPath);
+               readStream.pipe(res);
+               readStream.on("end", () => {
+                   fs.unlink(inputPath, () => {});
+                   fs.unlink(outputPath, () => {});
+               });
+            })
+            .save(outputPath);
+
+      } else if (format === "image") {
+         const { width = 0, quality = "original" } = settings || {};
+         
+         if (quality === "original" && (!width || width === 0)) {
+             res.setHeader("Content-Disposition", `attachment; filename="${safeTitle}.jpg"`);
+             res.setHeader("Content-Type", "image/jpeg");
+             
+             const readStream = fs.createReadStream(inputPath);
+             readStream.pipe(res);
+             
+             readStream.on("end", () => {
+                 fs.unlink(inputPath, () => {});
+             });
+             return;
+         }
+
+         res.setHeader("Content-Disposition", `attachment; filename="${safeTitle}_resized.jpg"`);
+         res.setHeader("Content-Type", "image/jpeg");
+
+         let qscale = 2; // high
+         if (quality === "medium") qscale = 5;
+         if (quality === "low") qscale = 10;
+         
+         const outputOptions = [`-q:v`, `${qscale}`];
+         if (width && width > 0) outputOptions.push('-vf', `scale=${width}:-1`);
+
+         ffmpeg(inputPath)
+            .outputOptions(outputOptions)
+            .toFormat("image2")
+            .on("error", (err) => {
+               console.error("FFmpeg error:", err);
+               if (!res.headersSent) res.status(500).json({ error: "Error processing image" });
                fs.unlink(inputPath, () => {});
             })
             .on("end", () => {
