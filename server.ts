@@ -16,6 +16,8 @@ if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic);
 }
 
+const extractionCache = new Map<string, { videoUrl: string, title: string, timestamp: number }>();
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -29,6 +31,13 @@ async function startServer() {
 
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
+    }
+    
+    // Check cache first
+    const cached = extractionCache.get(url);
+    if (cached && Date.now() - cached.timestamp < 1000 * 60 * 60) { // 1 hour cache
+        console.log(`Using cached extraction for ${url}`);
+        return res.json({ videoUrl: cached.videoUrl, title: cached.title });
     }
 
     try {
@@ -61,7 +70,7 @@ async function startServer() {
         if (!videoUrl) {
            const match = html.match(/https:(?:\\\/\\\/|\/\/)[^"']+\.mp4/g);
            if (match) {
-               const mp4s = Array.from(new Set(match)).map(u => u.replace(/\\/g, ''));
+               const mp4s = Array.from(new Set(match)).map((u: any) => u.replace(/\\/g, ''));
                const expMp4 = mp4s.filter(u => u.includes('expMp4') || !u.includes('hevc'));
                
                const bestMatch = expMp4.find(u => u.includes('720')) || 
@@ -84,7 +93,7 @@ async function startServer() {
         if (!videoUrl) {
             const gifMatch = html.match(/https:(?:\\\/\\\/|\/\/)[^"']+\.gif\b/g);
             if (gifMatch) {
-               videoUrl = Array.from(new Set(gifMatch))[0].replace(/\\/g, '');
+               videoUrl = (Array.from(new Set(gifMatch))[0] as string).replace(/\\/g, '');
             } else {
                videoUrl = $('meta[property="og:image"]').attr("content");
             }
@@ -127,7 +136,7 @@ async function startServer() {
                     if (!vUrl) {
                         const gifMatch = html.match(/https:(?:\\\/\\\/|\/\/)[^"']+\.gif\b/g);
                         if (gifMatch) {
-                            vUrl = Array.from(new Set(gifMatch))[0].replace(/\\/g, '');
+                            vUrl = (Array.from(new Set(gifMatch))[0] as string).replace(/\\/g, '');
                         } else {
                             const ogImage = $('meta[property="og:image"]').attr("content");
                             if (ogImage && !ogImage.includes('rsrc.php')) vUrl = ogImage;
@@ -176,6 +185,8 @@ async function startServer() {
       if (!videoUrl) {
          return res.status(404).json({ error: "Could not extract media URL. Make sure it's a valid post and check Instagram session ID if private/blocked." });
       }
+      
+      extractionCache.set(url, { videoUrl, title, timestamp: Date.now() });
 
       return res.json({ videoUrl, title });
 
