@@ -178,8 +178,52 @@ async function startServer() {
                  videoUrl = await tryHtmlExtraction();
             }
         }
+      } else if (url.includes("dribbble.com")) {
+        console.log("Attempting Dribbble extraction...");
+        const response = await axios.get(url, {
+          headers,
+          validateStatus: (status) => status < 500
+        });
+
+        let html = typeof response.data === 'string' ? response.data : "";
+        
+        if (html.includes("challenge-container")) {
+             console.warn("Dribbble AWS WAF challenge encountered. HTML might be incomplete without proxy.");
+        }
+
+        const $ = cheerio.load(html);
+        
+        // 1. OG Video tag
+        videoUrl = $('meta[property="og:video"]').attr("content") || $('meta[name="twitter:player:stream"]').attr("content");
+        title = $('meta[property="og:title"]').attr("content") || "dribbble_shot";
+        
+        // 2. Video source tag
+        if (!videoUrl) {
+            const sourceMatch = html.match(/<source[^>]+src="([^"]+\.mp4[^"]*)"/);
+            if (sourceMatch && sourceMatch[1]) {
+                videoUrl = sourceMatch[1];
+            }
+        }
+        
+        // 3. Raw mp4 links in HTML body
+        if (!videoUrl) {
+            const mp4Match = html.match(/https:\/\/[^"']*\.dribbble\.com\/[^"']+\.mp4/g);
+            if (mp4Match) {
+               videoUrl = mp4Match[0];
+            }
+        }
+        
+        // 4. Fallback to GIF or static image
+        if (!videoUrl) {
+            const gifMatch = html.match(/https:\/\/[^"']*\.dribbble\.com\/[^"']+\.gif/g);
+            if (gifMatch) {
+               videoUrl = gifMatch[0];
+            } else {
+               videoUrl = $('meta[property="og:image"]').attr("content");
+            }
+        }
       } else {
-        return res.status(400).json({ error: "Unsupported domain. Provide a Pinterest or Instagram URL." });
+        return res.status(400).json({ error: "Unsupported domain. Provide a Pinterest, Instagram, or Dribbble URL." });
       }
 
       if (!videoUrl) {
