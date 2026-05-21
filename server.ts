@@ -181,7 +181,7 @@ async function startServer() {
       } else if (url.includes("dribbble.com")) {
         console.log("Attempting Dribbble extraction...");
         if (dribbbleSession) {
-             headers["Cookie"] = `_dribbble_session=${dribbbleSession}`;
+             headers["Cookie"] = dribbbleSession.includes("=") ? dribbbleSession : `_dribbble_session=${dribbbleSession}`;
         }
         const response = await axios.get(url, {
           headers,

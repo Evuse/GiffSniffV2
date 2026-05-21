@@ -81,13 +81,13 @@ export default function SettingsModal({ isOpen, onClose, initialSessionId, initi
                 
                 <div>
                   <label className="block text-xs font-black text-slate-600 dark:text-cyan-50 uppercase tracking-widest mb-3">
-                    Dribbble <code className="text-[10px] bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 rounded ml-1 text-slate-800 dark:text-cyan-400">_dribbble_session</code>
+                    Dribbble <code className="text-[10px] bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 rounded ml-1 text-slate-800 dark:text-cyan-400">Cookie String</code>
                   </label>
                   <input
                     type="password"
                     value={localDribbbleSessionId}
                     onChange={(e) => setLocalDribbbleSessionId(e.target.value)}
-                    placeholder="v1%3AeyJ..."
+                    placeholder="datadome=...; _dribbble_session=...;"
                     className="w-full px-5 py-3 bg-white dark:bg-black border border-slate-300 dark:border-white/10 rounded-2xl text-slate-800 dark:text-cyan-50 placeholder:text-slate-400 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent transition-all shadow-inner"
                   />
                 </div>
@@ -102,15 +102,17 @@ export default function SettingsModal({ isOpen, onClose, initialSessionId, initi
                        <>
                          <li>Login at instagram.com or dribbble.com</li>
                          <li>Open DevTools (F12)</li>
-                         <li>Application {">"} Cookies</li>
-                         <li>Copy [sessionid] or [_dribbble_session]</li>
+                         <li>Network tab {">"} Refresh {">"} Click page request</li>
+                         <li>Instagram: Copy Cookie `sessionid`</li>
+                         <li>Dribbble: Copy ENTIRE `Cookie` Request Header</li>
                        </>
                     ) : (
                        <>
                          <li>Accedi a instagram.com o dribbble.com</li>
                          <li>Apri DevTools (F12)</li>
-                         <li>App {">"} Cookie</li>
-                         <li>Copia [sessionid] o [_dribbble_session]</li>
+                         <li>Rete {">"} Aggiorna {">"} Clicca richiesta pagina</li>
+                         <li>Instagram: Copia Cookie `sessionid`</li>
+                         <li>Dribbble: Copia TUTTO l'header `Cookie` della richiesta</li>
                        </>
                     )}
                   </ol>
