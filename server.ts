@@ -27,7 +27,7 @@ async function startServer() {
 
   // API Route: Extract Video URL
   app.post("/api/extract", async (req, res) => {
-    const { url, sessionid } = req.body;
+    const { url, sessionid, dribbbleSession } = req.body;
 
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
@@ -180,6 +180,9 @@ async function startServer() {
         }
       } else if (url.includes("dribbble.com")) {
         console.log("Attempting Dribbble extraction...");
+        if (dribbbleSession) {
+             headers["Cookie"] = `_dribbble_session=${dribbbleSession}`;
+        }
         const response = await axios.get(url, {
           headers,
           validateStatus: (status) => status < 500
@@ -189,7 +192,7 @@ async function startServer() {
         
         if (html.includes("challenge-container")) {
              console.warn("Dribbble AWS WAF challenge encountered. HTML might be incomplete without proxy.");
-             return res.status(403).json({ error: "Access blocked by Dribbble's security challenge (WAF). Non è possibile estrarre (server-side proxy required)." });
+             return res.status(403).json({ error: "Access blocked by Dribbble's security challenge (WAF). Provide a Dribbble Session ID in Settings to bypass." });
         }
 
         const $ = cheerio.load(html);
@@ -231,6 +234,8 @@ async function startServer() {
          let errorMsg = "Could not extract media URL. Make sure it's a valid post/shot.";
          if (url.includes("instagram.com")) {
              errorMsg += " Check Instagram session ID if private/blocked.";
+         } else if (url.includes("dribbble.com")) {
+             errorMsg += " Dribbble AWS WAF challenge might be blocking requests. Try setting a Dribbble Session ID.";
          }
          return res.status(404).json({ error: errorMsg });
       }

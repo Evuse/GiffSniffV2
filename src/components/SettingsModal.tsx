@@ -6,21 +6,24 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialSessionId: string;
-  onSave: (sessionId: string) => void;
+  initialDribbbleSessionId: string;
+  onSave: (sessionId: string, dribbbleSessionId: string) => void;
   lang: 'en' | 'it';
   dict: Record<string, any>;
 }
 
-export default function SettingsModal({ isOpen, onClose, initialSessionId, onSave, lang, dict }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, initialSessionId, initialDribbbleSessionId, onSave, lang, dict }: SettingsModalProps) {
   const [localSessionId, setLocalSessionId] = useState(initialSessionId);
+  const [localDribbbleSessionId, setLocalDribbbleSessionId] = useState(initialDribbbleSessionId);
   const t = dict[lang];
 
   useEffect(() => {
     setLocalSessionId(initialSessionId);
-  }, [initialSessionId, isOpen]);
+    setLocalDribbbleSessionId(initialDribbbleSessionId);
+  }, [initialSessionId, initialDribbbleSessionId, isOpen]);
 
   const handleSave = () => {
-    onSave(localSessionId);
+    onSave(localSessionId, localDribbbleSessionId);
     onClose();
   };
 
@@ -72,29 +75,42 @@ export default function SettingsModal({ isOpen, onClose, initialSessionId, onSav
                     value={localSessionId}
                     onChange={(e) => setLocalSessionId(e.target.value)}
                     placeholder="eyJhb..."
-                    className="w-full px-5 py-4 bg-white dark:bg-black border border-slate-300 dark:border-white/10 rounded-2xl text-slate-800 dark:text-cyan-50 placeholder:text-slate-400 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent transition-all shadow-inner"
+                    className="w-full px-5 py-3 bg-white dark:bg-black border border-slate-300 dark:border-white/10 rounded-2xl text-slate-800 dark:text-cyan-50 placeholder:text-slate-400 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent transition-all shadow-inner"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-black text-slate-600 dark:text-cyan-50 uppercase tracking-widest mb-3">
+                    Dribbble <code className="text-[10px] bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 rounded ml-1 text-slate-800 dark:text-cyan-400">_dribbble_session</code>
+                  </label>
+                  <input
+                    type="password"
+                    value={localDribbbleSessionId}
+                    onChange={(e) => setLocalDribbbleSessionId(e.target.value)}
+                    placeholder="v1%3AeyJ..."
+                    className="w-full px-5 py-3 bg-white dark:bg-black border border-slate-300 dark:border-white/10 rounded-2xl text-slate-800 dark:text-cyan-50 placeholder:text-slate-400 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent transition-all shadow-inner"
                   />
                 </div>
 
                 <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-5 text-sm text-slate-700 dark:text-cyan-50 font-mono relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl" />
                   <p className="opacity-80 pt-1 pb-4 text-xs font-bold leading-relaxed uppercase overflow-hidden relative z-10 text-cyan-700 dark:text-cyan-300">
-                    [INFO] {lang === 'en' ? 'Extraction via personal token reduces 401 Unauthorized errors.' : "L'estrazione tramite token personale riduce gli errori 401 Unauthorized."}
+                    [INFO] {lang === 'en' ? 'Extraction via personal tokens reduces unauthorized/WAF errors.' : "L'estrazione tramite token personali riduce errori e blocchi (WAF)."}
                   </p>
                   <ol className="list-decimal pl-5 space-y-2.5 opacity-80 text-[10px] uppercase font-bold tracking-widest relative z-10 text-slate-600 dark:text-slate-400">
                     {lang === 'en' ? (
                        <>
-                         <li>Login at instagram.com</li>
+                         <li>Login at instagram.com or dribbble.com</li>
                          <li>Open DevTools (F12)</li>
-                         <li>Application {">"} Cookies {">"} instagram.com</li>
-                         <li>Copy [sessionid] value</li>
+                         <li>Application {">"} Cookies</li>
+                         <li>Copy [sessionid] or [_dribbble_session]</li>
                        </>
                     ) : (
                        <>
-                         <li>Accedi a instagram.com</li>
+                         <li>Accedi a instagram.com o dribbble.com</li>
                          <li>Apri DevTools (F12)</li>
-                         <li>App {">"} Cookie {">"} instagram.com</li>
-                         <li>Copia valore [sessionid]</li>
+                         <li>App {">"} Cookie</li>
+                         <li>Copia [sessionid] o [_dribbble_session]</li>
                        </>
                     )}
                   </ol>

@@ -24,7 +24,7 @@ const dict = {
     btnLoading: "Bypassing firewalls...",
     btnSuccess: "Payload Downloaded",
     noticeTitle: "Authentication Notice",
-    noticeText: "Instagram node requires valid Session ID to bypass rate limits and access private payloads. Credential packets remain local.",
+    noticeText: "Instagram or Dribbble node requires valid Session IDs to bypass WAF challenges / rate limits and access private payloads. Credential packets remain local.",
     btnConfig: "Configure Access Token",
     errEmpty: "Provide a valid target URL.",
     vQualOriginal: "Original Stream",
@@ -55,7 +55,7 @@ const dict = {
     btnLoading: "Bypass dei firewall...",
     btnSuccess: "Payload Scaricato",
     noticeTitle: "Avviso Autenticazione",
-    noticeText: "Il nodo Instagram richiede un Session ID valido per superare i limiti di rate e decrittografare payload privati. I token rimangono nel client locale.",
+    noticeText: "Il nodo Instagram o Dribbble richiede un Session ID valido per superare i blocchi WAF o limiti di rate e scaricare media privati. I token rimangono nel client locale.",
     btnConfig: "Configura Token di Accesso",
     errEmpty: "Fornire un URL target valido.",
     vQualOriginal: "Flusso Originale",
@@ -103,6 +103,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [igSessionId, setIgSessionId] = useState(() => localStorage.getItem('ig_sessionid') || '');
+  const [dribbbleSessionId, setDribbbleSessionId] = useState(() => localStorage.getItem('dribbble_sessionid') || '');
   const [extractedCache, setExtractedCache] = useState<{ url: string, videoUrl: string, title: string } | null>(null);
 
   useEffect(() => {
@@ -146,7 +147,7 @@ export default function App() {
         const extractRes = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, sessionid: igSessionId })
+          body: JSON.stringify({ url, sessionid: igSessionId, dribbbleSession: dribbbleSessionId })
         });
 
         const extractData = await extractRes.json();
@@ -202,9 +203,11 @@ export default function App() {
     }
   };
 
-  const handleSaveIgSession = (value: string) => {
-    setIgSessionId(value);
-    localStorage.setItem('ig_sessionid', value);
+  const handleSaveIgSession = (igValue: string, dribbbleValue: string) => {
+    setIgSessionId(igValue);
+    setDribbbleSessionId(dribbbleValue);
+    localStorage.setItem('ig_sessionid', igValue);
+    localStorage.setItem('dribbble_sessionid', dribbbleValue);
   };
 
   return (
@@ -672,7 +675,7 @@ export default function App() {
               {/* SECONDARY SIDE PANEL (Right Side on Desktop) */}
               <div className="lg:col-span-4 space-y-8">
                 
-                {url.includes("instagram.com") && (
+                {(url.includes("instagram.com") || url.includes("dribbble.com")) && (
                 <div className="bg-gradient-to-b from-slate-200 to-slate-100 dark:from-white/10 dark:to-transparent rounded-[2rem] p-[1px] shadow-2xl relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-500/20 rounded-full blur-[40px] pointer-events-none group-hover:bg-fuchsia-500/30 transition-colors duration-700" />
                   <div className="bg-white/80 dark:bg-[#070b14]/90 backdrop-blur-2xl rounded-[1.8rem] p-8 h-full relative z-10 shadow-inner">
@@ -705,6 +708,7 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)} 
         onSave={handleSaveIgSession}
         initialSessionId={igSessionId}
+        initialDribbbleSessionId={dribbbleSessionId}
         lang={lang}
         dict={dict}
       />
