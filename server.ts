@@ -189,6 +189,7 @@ async function startServer() {
         
         if (html.includes("challenge-container")) {
              console.warn("Dribbble AWS WAF challenge encountered. HTML might be incomplete without proxy.");
+             return res.status(403).json({ error: "Access blocked by Dribbble's security challenge (WAF). Non è possibile estrarre (server-side proxy required)." });
         }
 
         const $ = cheerio.load(html);
@@ -227,7 +228,11 @@ async function startServer() {
       }
 
       if (!videoUrl) {
-         return res.status(404).json({ error: "Could not extract media URL. Make sure it's a valid post and check Instagram session ID if private/blocked." });
+         let errorMsg = "Could not extract media URL. Make sure it's a valid post/shot.";
+         if (url.includes("instagram.com")) {
+             errorMsg += " Check Instagram session ID if private/blocked.";
+         }
+         return res.status(404).json({ error: errorMsg });
       }
       
       extractionCache.set(url, { videoUrl, title, timestamp: Date.now() });

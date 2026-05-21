@@ -672,7 +672,7 @@ export default function App() {
               {/* SECONDARY SIDE PANEL (Right Side on Desktop) */}
               <div className="lg:col-span-4 space-y-8">
                 
-                {/* Notice Card */}
+                {url.includes("instagram.com") && (
                 <div className="bg-gradient-to-b from-slate-200 to-slate-100 dark:from-white/10 dark:to-transparent rounded-[2rem] p-[1px] shadow-2xl relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-500/20 rounded-full blur-[40px] pointer-events-none group-hover:bg-fuchsia-500/30 transition-colors duration-700" />
                   <div className="bg-white/80 dark:bg-[#070b14]/90 backdrop-blur-2xl rounded-[1.8rem] p-8 h-full relative z-10 shadow-inner">
@@ -693,6 +693,7 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+                )}
 
               </div>
             </div>
